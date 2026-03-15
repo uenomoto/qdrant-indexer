@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -62,6 +63,43 @@ def _resolve_files(sources: list, config_dir: Path) -> list[tuple[Path, str]]:
                 files.append((path, source.category))
 
     return files
+
+
+def _glob_to_regex(pattern: str) -> str:
+    """glob パターンを正規表現に変換する（** と * をサポート）"""
+    parts: list[str] = []
+    i = 0
+    while i < len(pattern):
+        c = pattern[i]
+        if c == '*':
+            if i + 1 < len(pattern) and pattern[i + 1] == '*':
+                # ** — 任意のディレクトリ階層
+                parts.append(".*")
+                i += 2
+                # 直後の / をスキップ
+                if i < len(pattern) and pattern[i] == '/':
+                    i += 1
+            else:
+                # * — ディレクトリ区切りを除く任意の文字列
+                parts.append("[^/]*")
+                i += 1
+        elif c == '?':
+            parts.append("[^/]")
+            i += 1
+        else:
+            parts.append(re.escape(c))
+            i += 1
+    return "^" + "".join(parts) + "$"
+
+
+def _match_source(rel_path: str, sources: list) -> str | None:
+    """相対パスが sources のいずれかの glob パターンにマッチすればカテゴリを返す"""
+
+    for source in sources:
+        regex = _glob_to_regex(source.path)
+        if re.match(regex, rel_path):
+            return source.category
+    return None
 
 
 def _get_updated_at(file_path: Path) -> str:
@@ -267,12 +305,14 @@ def sync(
         vector_name=derive_vector_name(cfg.embedding.model),
     )
 
-    # 削除ファイルのベクトルを削除
+    # 削除ファイルのベクトルを削除（sources にマッチするもののみ）
     for del_file in deleted:
         abs_path = git_root / del_file
         try:
             rel_path = str(abs_path.relative_to(config_dir))
         except ValueError:
+            continue
+        if _match_source(rel_path, cfg.sources) is None:
             continue
         qdrant.delete_by_file(rel_path)
         typer.echo(f"  削除: {rel_path}")
@@ -291,7 +331,9 @@ def sync(
             except ValueError:
                 continue
 
-            category = category_map.get(rel_path, "unknown")
+            category = category_map.get(rel_path)
+            if category is None:
+                continue
 
             # 旧チャンクを削除してから再投入
             qdrant.delete_by_file(rel_path)
@@ -352,7 +394,8 @@ def status(
 
     if current_state:
         table.add_row("最終コミット", current_state.last_commit[:12])
-        table.add_row("インデックス日時", current_state.indexed_at)
+        indexed_at_display = current_state.indexed_at.replace("+00:00", "").replace("T", " ").split(".")[0] + " (UTC)" if current_state.indexed_at else ""
+        table.add_row("インデックス日時", indexed_at_display)
         table.add_row("ファイル数", str(current_state.file_count))
         table.add_row("チャンク数", str(current_state.chunk_count))
     else:
