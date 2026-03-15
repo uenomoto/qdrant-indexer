@@ -5,18 +5,39 @@
 Qdrant ベクトル DB にドキュメントを投入し、[mcp-server-qdrant](https://github.com/qdrant/mcp-server-qdrant) 経由で Claude Code からセマンティック検索を可能にする。
 
 ## 全体像
-
 ```
-このリポジトリ（qdrant-indexer）
-├── docker-compose.qdrant.yml   ← 本番 Qdrant（常時起動・全プロジェクト共有）
-├── .devcontainer/              ← CLI 開発用（テスト用 Qdrant 内蔵）
-└── src/qdrant_indexer/         ← CLI ソースコード
-
-対象プロジェクト（例: Megurip）
-├── qdrant-index.yaml           ← インデクサー設定（対象ファイル・コレクション名）
-├── docs/                       ← インデックス対象のドキュメント
-└── .devcontainer/
-    └── docker-compose.yml      ← qdrant-shared ネットワークに接続
+ WSL2（ホストマシン）
+  │
+  ├── ~/projects/qdrant-indexer/          ← CLI のソースコード
+  │   ├── src/qdrant_indexer/             ← Python CLI 本体
+  │   ├── docker-compose.qdrant.yml       ← ★ ローカル Qdrant を起動するファイル
+  │   └── .devcontainer/                  ← CLI 開発用（今は停止）
+  │
+  ├── ~/projects/megurip/megurip_infrastructure/  ← ★ CLI を使う場所
+  │   ├── docs/                           ← インデックス対象の設計書・ADR
+  │   ├── qdrant-index.yaml               ← インデクサー設定
+  │   └── .devcontainer/                  ← Megurip 開発コンテナ
+  │
+  │
+  │  ┌─── Docker ネットワーク: qdrant-shared ───────────────────┐
+  │  │                                                          │
+  │  │  ┌──────────────────┐    ┌─────────────────────────────┐ │
+  │  │  │  qdrant          │    │  megurip-infrastructure     │ │
+  │  │  │  (Qdrant v1.17)  │◄───│  (Megurip devcontainer)     │ │
+  │  │  │                  │    │                             │ │
+  │  │  │  REST: 6333      │    │  qdrant-indexer CLI         │ │
+  │  │  │  GUI: 6333/dash  │    │  (uv tool install で導入)   │ │
+  │  │  │                  │    │                             │ │
+  │  │  │  コレクション:     │    │  実行:                      │ │
+  │  │  │   "megurip"      │    │  qdrant-indexer index       │ │
+  │  │  │   "project-b"..  │    │  qdrant-indexer sync        │ │
+  │  │  └──────────────────┘    └─────────────────────────────┘ │
+  │  │         ↑                                                │
+  │  └─────────│────────────────────────────────────────────────┘
+  │            │
+  │   http://localhost:6333/dashboard ← ブラウザから GUI 確認
+  │
+  └── Windows ブラウザ
 ```
 
 ## セットアップ
@@ -33,6 +54,11 @@ curl http://localhost:6333/healthz
 ```
 
 Qdrant は `restart: unless-stopped` で常時起動する。PC 再起動後も自動復帰。
+
+実際にクエリを投げてベクトルデータベースのデータを取得するようにコンテナの間にNetwork接続する設定
+```sh
+docker network connect qdrant-shared megurip-infrastructure
+```
 
 ### 2. 対象プロジェクト側の設定
 
