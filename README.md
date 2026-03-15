@@ -46,7 +46,10 @@ Qdrant ベクトル DB にドキュメントを投入し、[mcp-server-qdrant](h
 # 初回のみ: 起動すると qdrant-shared ネットワークが自動作成される
 cdは保存先によって変わる
 ```bash
-cd projects/qdrant-indexer/
+cd ~/projects/qdrant-indexer
+```
+開始
+```bash
 docker compose -f docker-compose.qdrant.yml up -d
 ```
 停止
