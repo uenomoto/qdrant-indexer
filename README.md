@@ -74,7 +74,7 @@ networks:
 meguripコンテナ起動後中に入って疎通確認
 ```sh
 # 状態確認
-curl http://localhost:6333/healthz
+curl -s http://qdrant:6333/healthz
 ```
 ベクトルデータベースのサービス名がqdrantの場合
 ```sh
