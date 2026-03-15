@@ -367,3 +367,10 @@ def delete(
     except Exception as e:  # noqa: BLE001
         typer.echo(f"削除に失敗しました: {e}", err=True)
         raise typer.Exit(code=1) from e
+
+    # 状態ファイルも削除
+    config_dir = config.resolve().parent
+    state_path = config_dir / ".qdrant-index-state.json"
+    if state_path.exists():
+        state_path.unlink()
+        typer.echo(f"状態ファイルを削除しました: {state_path}")

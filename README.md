@@ -19,34 +19,13 @@ Qdrant ベクトル DB にドキュメントを投入し、[mcp-server-qdrant](h
     └── docker-compose.yml      ← qdrant-shared ネットワークに接続
 ```
 
-### 使い方フロー(meguripをプロジェクトとして)
-
-```bash
-# ① 本番 Qdrant を起動（初回のみ。以降は常時起動）
-cd qdrant-indexer/
-docker compose -f docker-compose.qdrant.yml up -d
-
-# ② 対象プロジェクトの devcontainer を起動
-cd megurip/
-docker compose -f .devcontainer/docker-compose.yml up -d
-
-# ③ devcontainer 内で CLI を実行してドキュメントを投入
-docker exec -it megurip-infrastructure bash
-# PyPI に公開していないため、git経由でCLI をインストール（初回のみ）
-SSH鍵でいつもgit操作している人: `uv tool install git+ssh://git@github.com/uenomoto/qdrant-indexer.git`
-HTTPSでいつもgit操作している人: `uv tool install git+https://github.com/uenomoto/qdrant-indexer.git`
-qdrant-indexer index --config qdrant-index.yaml
-
-# ④ Claude Code が mcp-server-qdrant 経由でセマンティック検索
-#    → 自動で Qdrant に問い合わせて関連ドキュメントを返す
-```
-
 ## セットアップ
 
-### 本番 Qdrant の起動
+### 1. 本番 Qdrant の起動
 
 ```bash
 # 初回のみ: 起動すると qdrant-shared ネットワークが自動作成される
+cd qdrant-indexer/
 docker compose -f docker-compose.qdrant.yml up -d
 
 # 状態確認
@@ -55,9 +34,9 @@ curl http://localhost:6333/healthz
 
 Qdrant は `restart: unless-stopped` で常時起動する。PC 再起動後も自動復帰。
 
-### 対象プロジェクト側の設定
+### 2. 対象プロジェクト側の設定
 
-1. **docker-compose.yml に外部ネットワークを追加**:
+**docker-compose.yml に外部ネットワークを追加**:
 
 ```yaml
 services:
@@ -74,7 +53,7 @@ networks:
     name: qdrant-shared
 ```
 
-2. **qdrant-index.yaml を作成**:
+**qdrant-index.yaml を作成**:
 
 ```yaml
 qdrant:
@@ -91,7 +70,7 @@ sources:
     category: "adr"
 ```
 
-3. **mcp-server-qdrant を Claude Code に設定**:
+**mcp-server-qdrant を Claude Code に設定**:
 
 ```json
 {
@@ -110,6 +89,18 @@ sources:
 ```
 
 **重要**: CLI（投入側）と mcp-server-qdrant（検索側）で同じ埋め込みモデルを使うこと。一致しないと検索結果がおかしくなる。
+
+### 3. CLI のインストール
+
+PyPI に公開していないため、対象プロジェクトの devcontainer 内で git 経由でインストールする（初回のみ）。
+
+```bash
+# SSH 鍵の場合
+uv tool install git+ssh://git@github.com/uenomoto/qdrant-indexer.git
+
+# HTTPS の場合
+uv tool install git+https://github.com/uenomoto/qdrant-indexer.git
+```
 
 ## コマンド
 
@@ -172,6 +163,10 @@ qdrant-indexer index --config qdrant-index.yaml
 > `qdrant-index.yaml` の `sources` にパスを追加しただけでは、既にコミット済みのファイルは sync の対象になりません。
 > sources を変更した場合は `delete` → `index` でフルリビルドしてください。
 
+## 確認方法
+
+`http://localhost:6333/dashboard` の GUI サイドバーから Collections でポイント数やステータスを確認できる。
+
 ## 開発（CLI 自体の開発）
 
 devcontainer にはテスト用 Qdrant が内蔵されている。本番 Qdrant とは独立。
@@ -194,12 +189,4 @@ uv run mypy src/qdrant_indexer/
 - `intfloat/multilingual-e5-large` は E5 系モデルのため、投入テキストに `"passage: "` プレフィックスが必要。本 CLI は自動で付与するので利用者は意識不要
 - `.qdrant-index-state.json` は `.gitignore` に追加すること（ローカル状態のため）
 - Qdrant を先に起動してから対象プロジェクトの devcontainer を起動すること（外部ネットワークが必要）
-## 既知の警告
-### FastEmbed UserWarning（mean pooling）
-`index` / `sync` 実行時に以下の警告が表示されますが、**動作に影響はありません**：
-> The model intfloat/multilingual-e5-large now uses mean pooling instead of CLS embedding.
-FastEmbed v0.6 以降で pooling 方式が CLS → mean pooling に変更されたことの告知です。現在のコードは mean pooling で正しく動作しています。
-
-## 投入後の確認方法
-`http://localhost:6333/dashboard`でGUIでのサイドバーからCollectionsで確認できます
-初回は自動で`.qdrant-index-state.json`ファイルが生成されます
+- `index` / `sync` 実行時に FastEmbed の mean pooling に関する `UserWarning` が表示されるが、**動作に影響はない**
