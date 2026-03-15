@@ -48,17 +48,9 @@ Qdrant ベクトル DB にドキュメントを投入し、[mcp-server-qdrant](h
 # 初回のみ: 起動すると qdrant-shared ネットワークが自動作成される
 cd projects/qdrant-indexer/ # 保存先によって変わる
 docker compose -f docker-compose.qdrant.yml up -d
-
-# 状態確認
-curl http://localhost:6333/healthz
 ```
 
 Qdrant は `restart: unless-stopped` で常時起動する。PC 再起動後も自動復帰。
-
-実際にクエリを投げてベクトルデータベースのデータを取得するようにコンテナの間にNetwork接続する設定
-```sh
-docker network connect qdrant-shared megurip-infrastructure
-```
 
 ### 2. 対象プロジェクト側の設定
 
@@ -77,6 +69,12 @@ networks:
   qdrant-shared:               # 追加
     external: true
     name: qdrant-shared
+```
+
+meguripコンテナ起動後内に入って疎通確認
+```sh
+# 状態確認
+curl http://localhost:6333/healthz
 ```
 
 **qdrant-index.yaml を作成**:
