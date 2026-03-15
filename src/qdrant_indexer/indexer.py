@@ -22,20 +22,38 @@ from qdrant_indexer.models import Chunk
 _BATCH_SIZE = 100
 
 
+def derive_vector_name(model_name: str) -> str:
+    """埋め込みモデル名から名前付きベクトルフィールド名を導出する。
+
+    qdrant-client の FastEmbed 命名規則に準拠:
+    ``model.split("/")[-1].lower()`` → ``f"fast-{name}"``
+
+    Args:
+        model_name: モデル名（例: "intfloat/multilingual-e5-large"）
+
+    Returns:
+        ベクトルフィールド名（例: "fast-multilingual-e5-large"）
+    """
+    short = model_name.rsplit("/", maxsplit=1)[-1].lower()
+    return f"fast-{short}"
+
+
 class QdrantIndexer:
     """Qdrant コレクションへのベクトル投入・削除"""
 
-    def __init__(self, url: str, collection: str, vector_size: int) -> None:
+    def __init__(self, url: str, collection: str, vector_size: int, vector_name: str) -> None:
         """Qdrant クライアントを初期化する。
 
         Args:
             url: Qdrant REST API URL（例: "http://localhost:6333"）
             collection: コレクション名
             vector_size: ベクトルの次元数（例: 1024）
+            vector_name: 名前付きベクトルフィールド名（例: "fast-multilingual-e5-large"）
         """
         self._client = QdrantClient(url=url)
         self._collection = collection
         self._vector_size = vector_size
+        self._vector_name = vector_name
 
     def ensure_collection(self) -> bool:
         """コレクションが存在しなければ作成する。
@@ -48,10 +66,12 @@ class QdrantIndexer:
 
         self._client.create_collection(
             collection_name=self._collection,
-            vectors_config=VectorParams(
-                size=self._vector_size,
-                distance=Distance.COSINE,
-            ),
+            vectors_config={
+                self._vector_name: VectorParams(
+                    size=self._vector_size,
+                    distance=Distance.COSINE,
+                ),
+            },
         )
         return True
 
@@ -84,9 +104,9 @@ class QdrantIndexer:
                 "section": chunk.metadata.section,
                 "heading_path": chunk.metadata.heading_path,
                 "updated_at": chunk.metadata.updated_at,
-                "content": chunk.content,
+                "document": chunk.content,
             }
-            points.append(PointStruct(id=point_id, vector=vector, payload=payload))
+            points.append(PointStruct(id=point_id, vector={self._vector_name: vector}, payload=payload))
 
         # バッチ分割して投入
         for start in range(0, len(points), _BATCH_SIZE):

@@ -15,7 +15,7 @@ from qdrant_indexer.chunker import chunk_markdown
 from qdrant_indexer.config import ConfigError, load_config
 from qdrant_indexer.embedder import Embedder
 from qdrant_indexer.git_diff import get_changed_files, get_current_commit, get_repo_root
-from qdrant_indexer.indexer import QdrantIndexer
+from qdrant_indexer.indexer import QdrantIndexer, derive_vector_name
 from qdrant_indexer.models import Chunk, IndexState
 from qdrant_indexer.state import load_state, save_state
 
@@ -183,6 +183,7 @@ def index(
                         url=cfg.qdrant.url,
                         collection=cfg.qdrant.collection,
                         vector_size=len(batch_vectors[0]),
+                        vector_name=derive_vector_name(cfg.embedding.model),
                     )
                     created = qdrant.ensure_collection()
                     if created:
@@ -263,6 +264,7 @@ def sync(
         url=cfg.qdrant.url,
         collection=cfg.qdrant.collection,
         vector_size=0,  # 既存コレクション前提
+        vector_name=derive_vector_name(cfg.embedding.model),
     )
 
     # 削除ファイルのベクトルを削除
@@ -362,6 +364,7 @@ def status(
             url=cfg.qdrant.url,
             collection=cfg.qdrant.collection,
             vector_size=0,
+            vector_name=derive_vector_name(cfg.embedding.model),
         )
         info = qdrant.get_collection_info()
         if info.get("exists"):
@@ -411,6 +414,7 @@ def delete(
             url=cfg.qdrant.url,
             collection=cfg.qdrant.collection,
             vector_size=0,
+            vector_name=derive_vector_name(cfg.embedding.model),
         )
         qdrant.delete_collection()
         typer.echo(f"コレクション '{cfg.qdrant.collection}' を削除しました")
