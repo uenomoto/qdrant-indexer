@@ -70,13 +70,11 @@ networks:
     external: true
     name: qdrant-shared
 ```
-
+ベクトルデータベースのサービス名がqdrantの場合
 meguripコンテナ起動後中に入って疎通確認
 ```sh
-# 状態確認
 curl -s http://qdrant:6333/healthz
 ```
-ベクトルデータベースのサービス名がqdrantの場合
 ```sh
 ping -c 3 qdrant
 ```
