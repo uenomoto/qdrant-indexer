@@ -19,7 +19,7 @@ Qdrant ベクトル DB にドキュメントを投入し、[mcp-server-qdrant](h
     └── docker-compose.yml      ← qdrant-shared ネットワークに接続
 ```
 
-### 使い方フロー(meguripをプロジェクトして)
+### 使い方フロー(meguripをプロジェクトとして)
 
 ```bash
 # ① 本番 Qdrant を起動（初回のみ。以降は常時起動）
@@ -156,6 +156,11 @@ uv run mypy src/qdrant_indexer/
 - `intfloat/multilingual-e5-large` は E5 系モデルのため、投入テキストに `"passage: "` プレフィックスが必要。本 CLI は自動で付与するので利用者は意識不要
 - `.qdrant-index-state.json` は `.gitignore` に追加すること（ローカル状態のため）
 - Qdrant を先に起動してから対象プロジェクトの devcontainer を起動すること（外部ネットワークが必要）
+## 既知の警告
+### FastEmbed UserWarning（mean pooling）
+`index` / `sync` 実行時に以下の警告が表示されますが、**動作に影響はありません**：
+> The model intfloat/multilingual-e5-large now uses mean pooling instead of CLS embedding.
+FastEmbed v0.6 以降で pooling 方式が CLS → mean pooling に変更されたことの告知です。現在のコードは mean pooling で正しく動作しています。
 
 ## 投入後の確認方法
 `http://localhost:6333/dashboard`でGUIでのサイドバーからCollectionsで確認できます
