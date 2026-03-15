@@ -54,6 +54,9 @@ ARG NODE_VERSION=24.14.0
 RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
     | tar -xJ --strip-components=1 -C /usr/local/
 
+# Claude Code
+RUN npm install -g @anthropic-ai/claude-code
+
 # --------------------------------------------------------------------------
 # Layer 4: uv（Python パッケージマネージャ）
 # --------------------------------------------------------------------------

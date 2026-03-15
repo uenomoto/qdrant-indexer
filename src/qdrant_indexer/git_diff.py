@@ -33,6 +33,33 @@ def get_current_commit(repo_root: Path | str) -> str:
     return result.stdout.strip()
 
 
+def get_repo_root(cwd: Path | str) -> Path:
+    """git リポジトリのルートディレクトリを取得する。
+
+    Args:
+        cwd: 起点となるディレクトリ
+
+    Returns:
+        git リポジトリのルートディレクトリの Path
+
+    Raises:
+        RuntimeError: git コマンドが失敗した場合
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+        check=False,
+    )
+
+    if result.returncode != 0:
+        msg = f"git rev-parse --show-toplevel に失敗しました: {result.stderr.strip()}"
+        raise RuntimeError(msg)
+
+    return Path(result.stdout.strip())
+
+
 def get_changed_files(
     last_commit: str,
     source_patterns: list[str],

@@ -13,7 +13,7 @@ from rich.table import Table
 from qdrant_indexer.chunker import chunk_markdown
 from qdrant_indexer.config import ConfigError, load_config
 from qdrant_indexer.embedder import Embedder
-from qdrant_indexer.git_diff import get_changed_files, get_current_commit
+from qdrant_indexer.git_diff import get_changed_files, get_current_commit, get_repo_root
 from qdrant_indexer.indexer import QdrantIndexer
 from qdrant_indexer.models import Chunk, IndexState
 from qdrant_indexer.state import load_state, save_state
@@ -191,6 +191,15 @@ def sync(
 
     typer.echo(f"変更/追加: {len(modified)} 件, 削除: {len(deleted)} 件")
 
+    # git リポジトリルートを取得してパスを変換
+    git_root = get_repo_root(config_dir)
+
+    # カテゴリマップを構築（index コマンドと同じ解決ロジック）
+    all_source_files = _resolve_files(cfg.sources, config_dir)
+    category_map = {
+        str(fp.relative_to(config_dir)): cat for fp, cat in all_source_files
+    }
+
     qdrant = QdrantIndexer(
         url=cfg.qdrant.url,
         collection=cfg.qdrant.collection,
@@ -198,31 +207,43 @@ def sync(
     )
 
     # 削除ファイルのベクトルを削除
-    for file_path in deleted:
-        qdrant.delete_by_file(file_path)
-        typer.echo(f"  削除: {file_path}")
+    for del_file in deleted:
+        abs_path = git_root / del_file
+        try:
+            rel_path = str(abs_path.relative_to(config_dir))
+        except ValueError:
+            continue
+        qdrant.delete_by_file(rel_path)
+        typer.echo(f"  削除: {rel_path}")
 
     # 変更ファイルを再インデックス
     if modified:
         embedder = Embedder(cfg.embedding.model)
 
         for mod_file in modified:
-            mod_path = config_dir / mod_file
-            if not mod_path.exists():
+            abs_path = git_root / mod_file
+            if not abs_path.exists():
                 continue
 
-            # 旧チャンクを削除してから再投入
-            qdrant.delete_by_file(mod_file)
+            try:
+                rel_path = str(abs_path.relative_to(config_dir))
+            except ValueError:
+                continue
 
-            content = mod_path.read_text(encoding="utf-8")
-            updated_at = _get_updated_at(mod_path)
-            chunks = chunk_markdown(content, mod_file, "unknown", updated_at)
+            category = category_map.get(rel_path, "unknown")
+
+            # 旧チャンクを削除してから再投入
+            qdrant.delete_by_file(rel_path)
+
+            content = abs_path.read_text(encoding="utf-8")
+            updated_at = _get_updated_at(abs_path)
+            chunks = chunk_markdown(content, rel_path, category, updated_at)
 
             if chunks:
                 vectors = embedder.embed_chunks(chunks)
                 qdrant.upsert_chunks(chunks, vectors)
 
-            typer.echo(f"  更新: {mod_file} ({len(chunks)} チャンク)")
+            typer.echo(f"  更新: {rel_path} ({len(chunks)} チャンク)")
 
     # 状態を更新
     try:
@@ -231,14 +252,14 @@ def sync(
         commit = "unknown"
 
     info = qdrant.get_collection_info()
-    actual_count = info.get("points_count", current_state.chunk_count) if info.get("exists") else current_state.chunk_count
+    actual_chunk_count = info.get("points_count", 0) if info.get("exists") else 0
 
     new_state = IndexState(
         last_commit=commit,
         collection=cfg.qdrant.collection,
         indexed_at=datetime.now(tz=UTC).isoformat(),
-        file_count=current_state.file_count + len(modified) - len(deleted),
-        chunk_count=actual_count,
+        file_count=len(all_source_files),
+        chunk_count=actual_chunk_count,
     )
     save_state(state_file, new_state)
     typer.echo("状態を更新しました")
