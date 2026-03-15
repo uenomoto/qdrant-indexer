@@ -106,12 +106,14 @@ sources:
 {
   "mcpServers": {
     "qdrant": {
+      "type": "stdio",
       "command": "uvx",
       "args": ["mcp-server-qdrant"],
       "env": {
         "QDRANT_URL": "http://qdrant:6333",
         "COLLECTION_NAME": "my-project",
-        "EMBEDDING_MODEL": "intfloat/multilingual-e5-large"
+        "EMBEDDING_MODEL": "intfloat/multilingual-e5-large",
+        "TOOL_FIND_DESCRIPTION": "プロジェクトの内部ドキュメントをセマンティック検索する。"
       }
     }
   }
@@ -216,7 +218,23 @@ uv run mypy src/qdrant_indexer/
 ## 注意事項
 
 - **初回の `index` 実行時**、埋め込みモデル（約 2.24GB）のダウンロードが発生する
-- `intfloat/multilingual-e5-large` は E5 系モデルのため、投入テキストに `"passage: "` プレフィックスが必要。本 CLI は自動で付与するので利用者は意識不要
+- `intfloat/multilingual-e5-large` は E5 系モデル。FastEmbed が内部でプレフィックス処理を行うため、利用者は意識不要
 - `.qdrant-index-state.json` は `.gitignore` に追加すること（ローカル状態のため）
 - Qdrant を先に起動してから対象プロジェクトの devcontainer を起動すること（外部ネットワークが必要）
 - `index` / `sync` 実行時に FastEmbed の mean pooling に関する `UserWarning` が表示されるが、**動作に影響はない**
+- v0.3.0 で名前付きベクトル（`"fast-multilingual-e5-large"` 形式）に移行した。v0.2.x 以前のコレクションは `delete` → `index` で再構築が必要
+
+## セマンティック検索の動作例
+
+`qdrant-indexer index` でドキュメントを投入後、mcp-server-qdrant 経由で Claude Code から検索した結果。
+
+Grep では難しい「表記揺れ」「多言語横断」「抽象的なクエリ」でも、意味的に関連するドキュメントが上位にヒットする。
+
+| クエリ | トップ結果 | ポイント |
+|--------|-----------|----------|
+| `認証とログイン` | security.md（API キー認証）、セマンティック検索の仕組み（「認証」と「ログイン」に言及） | 表記揺れ対応 |
+| `infrastructure as code` | 設計方針（modules/environments 構成）、背景（Terraform/AWS） | 英語 → 日本語の横断検索 |
+| `ベクトル検索の仕組み` | セマンティック検索の仕組み（1位）、バッチ処理設計 | 類義語（ベクトル検索 ≒ セマンティック検索） |
+| `Lambda のコールドスタート対策` | 背景（Lambda/サーバーレス記述あり） | 直接の記載がなくても関連ドキュメントを返す |
+| `how to deploy` | deployment.md（1位） | 英語クエリで日本語ドキュメントをヒット |
+| `メモリ不足で落ちる` | troubleshooting.md、performance.md（OOM/バッチサイズ） | 口語表現 → 技術用語（OOM）のマッピング |
