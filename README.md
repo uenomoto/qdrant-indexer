@@ -43,11 +43,15 @@ Qdrant ベクトル DB にドキュメントを投入し、[mcp-server-qdrant](h
 ## セットアップ
 
 ### 1. 本番 Qdrant の起動
-
-```bash
 # 初回のみ: 起動すると qdrant-shared ネットワークが自動作成される
-cd projects/qdrant-indexer/ # 保存先によって変わる
+cdは保存先によって変わる
+```bash
+cd projects/qdrant-indexer/
 docker compose -f docker-compose.qdrant.yml up -d
+```
+停止
+```bash
+docker compose -f docker-compose.qdrant.yml down
 ```
 
 Qdrant は `restart: unless-stopped` で常時起動する。PC 再起動後も自動復帰。
