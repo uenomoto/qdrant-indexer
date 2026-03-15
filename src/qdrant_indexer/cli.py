@@ -7,9 +7,10 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from qdrant_indexer import __version__
 from qdrant_indexer.chunker import chunk_markdown
 from qdrant_indexer.config import ConfigError, load_config
 from qdrant_indexer.embedder import Embedder
@@ -18,11 +19,34 @@ from qdrant_indexer.indexer import QdrantIndexer
 from qdrant_indexer.models import Chunk, IndexState
 from qdrant_indexer.state import load_state, save_state
 
+_EMBED_BATCH_SIZE = 32
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"qdrant-indexer {__version__}")
+        raise typer.Exit()
+
+
 app = typer.Typer(
     name="qdrant-indexer",
     help="内部ドキュメントのセマンティック検索インデクサー CLI",
     no_args_is_help=True,
 )
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        help="バージョンを表示",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """内部ドキュメントのセマンティック検索インデクサー CLI"""
 
 
 def _resolve_files(sources: list, config_dir: Path) -> list[tuple[Path, str]]:
@@ -44,6 +68,41 @@ def _get_updated_at(file_path: Path) -> str:
     """ファイルの最終更新日を ISO 8601 形式で返す"""
     mtime = file_path.stat().st_mtime
     return datetime.fromtimestamp(mtime, tz=UTC).isoformat()
+
+
+def _embed_and_upsert(
+    embedder: Embedder, qdrant: QdrantIndexer, chunks: list[Chunk]
+) -> int:
+    """チャンクをバッチ分割してベクトル生成 → Qdrant 投入する"""
+    upserted = 0
+    for start in range(0, len(chunks), _EMBED_BATCH_SIZE):
+        batch_chunks = chunks[start : start + _EMBED_BATCH_SIZE]
+        batch_vectors = embedder.embed_chunks(batch_chunks)
+        upserted += qdrant.upsert_chunks(batch_chunks, batch_vectors)
+    return upserted
+
+
+def _save_index_state(
+    config_dir: Path,
+    state_path: Path,
+    collection: str,
+    file_count: int,
+    chunk_count: int,
+) -> None:
+    """インデックス状態を保存する"""
+    try:
+        commit = get_current_commit(config_dir)
+    except RuntimeError:
+        commit = "unknown"
+
+    state = IndexState(
+        last_commit=commit,
+        collection=collection,
+        indexed_at=datetime.now(tz=UTC).isoformat(),
+        file_count=file_count,
+        chunk_count=chunk_count,
+    )
+    save_state(state_path, state)
 
 
 @app.command()
@@ -99,50 +158,50 @@ def index(
         typer.echo("チャンクが生成されませんでした")
         raise typer.Exit(code=1)
 
-    # ベクトル生成
+    # バッチ処理: ベクトル生成 → Qdrant 投入
+    embedder = Embedder(cfg.embedding.model)
+    qdrant: QdrantIndexer | None = None
+    upserted_total = 0
+    total_batches = (len(all_chunks) + _EMBED_BATCH_SIZE - 1) // _EMBED_BATCH_SIZE
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
     ) as progress:
-        progress.add_task(f"ベクトル生成中（{cfg.embedding.model}）...")
-        embedder = Embedder(cfg.embedding.model)
-        vectors = embedder.embed_chunks(all_chunks)
+        desc = "ベクトル生成中..." if dry_run else "ベクトル生成 → 投入中..."
+        task = progress.add_task(desc, total=total_batches)
 
-    typer.echo(f"ベクトル生成完了: {len(vectors)} 件")
+        for start in range(0, len(all_chunks), _EMBED_BATCH_SIZE):
+            batch_chunks = all_chunks[start : start + _EMBED_BATCH_SIZE]
+            batch_vectors = embedder.embed_chunks(batch_chunks)
+
+            if not dry_run:
+                if qdrant is None:
+                    qdrant = QdrantIndexer(
+                        url=cfg.qdrant.url,
+                        collection=cfg.qdrant.collection,
+                        vector_size=len(batch_vectors[0]),
+                    )
+                    created = qdrant.ensure_collection()
+                    if created:
+                        typer.echo(f"コレクション '{cfg.qdrant.collection}' を作成しました")
+
+                upserted_total += qdrant.upsert_chunks(batch_chunks, batch_vectors)
+
+            progress.advance(task)
 
     if dry_run:
+        typer.echo(f"[dry-run] ベクトル生成完了: {len(all_chunks)} 件")
         typer.echo("[dry-run] Qdrant への投入をスキップしました")
         return
 
-    # Qdrant に投入
-    qdrant = QdrantIndexer(
-        url=cfg.qdrant.url,
-        collection=cfg.qdrant.collection,
-        vector_size=len(vectors[0]),
-    )
-
-    created = qdrant.ensure_collection()
-    if created:
-        typer.echo(f"コレクション '{cfg.qdrant.collection}' を作成しました")
-
-    upserted = qdrant.upsert_chunks(all_chunks, vectors)
-    typer.echo(f"投入完了: {upserted} ポイント")
+    typer.echo(f"投入完了: {upserted_total} ポイント")
 
     # 状態を保存
-    try:
-        commit = get_current_commit(config_dir)
-    except RuntimeError:
-        commit = "unknown"
-
-    state = IndexState(
-        last_commit=commit,
-        collection=cfg.qdrant.collection,
-        indexed_at=datetime.now(tz=UTC).isoformat(),
-        file_count=len(files),
-        chunk_count=len(all_chunks),
-    )
     state_path = config_dir / ".qdrant-index-state.json"
-    save_state(state_path, state)
+    _save_index_state(config_dir, state_path, cfg.qdrant.collection, len(files), len(all_chunks))
     typer.echo(f"状態を保存しました: {state_path}")
 
 
@@ -240,28 +299,19 @@ def sync(
             chunks = chunk_markdown(content, rel_path, category, updated_at)
 
             if chunks:
-                vectors = embedder.embed_chunks(chunks)
-                qdrant.upsert_chunks(chunks, vectors)
+                _embed_and_upsert(embedder, qdrant, chunks)
 
             typer.echo(f"  更新: {rel_path} ({len(chunks)} チャンク)")
 
     # 状態を更新
-    try:
-        commit = get_current_commit(config_dir)
-    except RuntimeError:
-        commit = "unknown"
-
     info = qdrant.get_collection_info()
-    actual_chunk_count = info.get("points_count", 0) if info.get("exists") else 0
-
-    new_state = IndexState(
-        last_commit=commit,
-        collection=cfg.qdrant.collection,
-        indexed_at=datetime.now(tz=UTC).isoformat(),
-        file_count=len(all_source_files),
-        chunk_count=actual_chunk_count,
+    _save_index_state(
+        config_dir,
+        state_file,
+        cfg.qdrant.collection,
+        len(all_source_files),
+        info.get("points_count", 0) if info.get("exists") else 0,
     )
-    save_state(state_file, new_state)
     typer.echo("状態を更新しました")
 
 
