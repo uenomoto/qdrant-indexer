@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "qdrant": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-qdrant"],
+      "env": {
+        "QDRANT_URL": "http://qdrant-indexer-qdrant:6333",
+        "COLLECTION_NAME": "test-collection",
+        "EMBEDDING_MODEL": "intfloat/multilingual-e5-large",
+        "TOOL_FIND_DESCRIPTION": "動作確認するよ"
+      }
+    }
+  }
+}
