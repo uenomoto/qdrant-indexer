@@ -21,7 +21,7 @@
 
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.17.0
     container_name: qdrant
     restart: unless-stopped
     ports:
@@ -34,6 +34,7 @@ services:
 
 volumes:
   qdrant-data:
+    name: qdrant-data
 
 networks:
   qdrant-shared:
