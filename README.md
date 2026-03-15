@@ -113,19 +113,39 @@ sources:
 
 ## コマンド
 
+### `index` — 全ファイルを一括インデックス
+
 ```bash
-# 全ファイルをインデックス（初回 or フルリビルド）
 qdrant-indexer index --config qdrant-index.yaml
+```
 
-# 変更ファイルだけ差分更新（git diff ベース）
+`qdrant-index.yaml` の `sources` に定義された全ファイルをチャンク分割・ベクトル化して Qdrant に投入する。初回セットアップや設定変更後のフルリビルドで使用。
+
+### `sync` — 変更ファイルだけ差分更新
+
+```bash
 qdrant-indexer sync --config qdrant-index.yaml
+```
 
-# インデックスの状態を表示
+`git diff` で前回インデックスからの変更を検出し、変更・追加されたファイルだけを再投入する。日常的な更新に使用。
+
+### `status` — インデックス状態の確認
+
+```bash
 qdrant-indexer status --config qdrant-index.yaml
+```
 
-# コレクションを削除
+ローカルの状態ファイルと Qdrant のコレクション情報を表示する。
+
+### `delete` — コレクション削除
+
+```bash
 qdrant-indexer delete --config qdrant-index.yaml --force
 ```
+
+Qdrant のコレクションと `.qdrant-index-state.json` を削除する。`--force` を省略すると確認プロンプトが表示される。
+
+### オプション一覧
 
 | オプション | 対象コマンド | 説明 |
 |-----------|-------------|------|
@@ -133,6 +153,24 @@ qdrant-indexer delete --config qdrant-index.yaml --force
 | `--dry-run` | index | チャンク分割 + ベクトル生成のみ、Qdrant への投入はスキップ |
 | `--state` | sync, status | 状態ファイルのパス（デフォルト: `.qdrant-index-state.json`） |
 | `--force, -f` | delete | 確認プロンプトをスキップ |
+
+### 運用フロー
+
+```bash
+# 初回: 全ファイルを一括投入
+qdrant-indexer index --config qdrant-index.yaml
+
+# 日常: ドキュメント編集 → git commit → 差分更新
+qdrant-indexer sync --config qdrant-index.yaml
+
+# 設定変更時（sources 追加・モデル変更等）: フルリビルド
+qdrant-indexer delete --config qdrant-index.yaml --force
+qdrant-indexer index --config qdrant-index.yaml
+```
+
+> **注意**: `sync` は git diff ベースのため、**コミット済みの .md ファイルの変更のみ**を検出します。
+> `qdrant-index.yaml` の `sources` にパスを追加しただけでは、既にコミット済みのファイルは sync の対象になりません。
+> sources を変更した場合は `delete` → `index` でフルリビルドしてください。
 
 ## 開発（CLI 自体の開発）
 
