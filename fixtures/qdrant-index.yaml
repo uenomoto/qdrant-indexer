@@ -8,3 +8,5 @@ embedding:
 sources:
     - path: "*.md"
       category: "test"
+    - path: "docs/**/*.md"
+      category: "docs"
