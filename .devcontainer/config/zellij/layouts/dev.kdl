@@ -1,0 +1,74 @@
+// qdrant-indexer 開発レイアウト（2タブ構成）
+// 起動: zellij --layout dev（エイリアス: zjd）
+//
+// ━━━ Tab 1: dev (Alt+1) ━━━━━━━━━━━━━━━━━━━━
+// ┌──────────────┬───────────────────────────────┐
+// │              │                               │
+// │    yazi      │       Claude Code             │
+// │  (自動起動)   │       (メイン作業・85%)         │
+// │              │                               │
+// │              ├───────────────────────────────┤
+// │              │  lazygit (15%) 自動起動         │
+// └──────────────┴───────────────────────────────┘
+//
+// ━━━ Tab 2: agents (Alt+2) ━━━━━━━━━━━━━━━━━━━
+// ┌─────────────────┬──────────────────────────┐
+// │   Claude Code   │   Claude Code            │
+// │   (調査用1)      │   (調査用2)               │
+// ├─────────────────┼──────────────────────────┤
+// │   Claude Code   │   Claude Code            │
+// │   (並行作業1)    │   (並行作業2)              │
+// └─────────────────┴──────────────────────────┘
+
+layout {
+    // 全タブ共通: compact-bar（タブ+ステータスを1行に統合）
+    default_tab_template {
+        pane size=1 borderless=true {
+            plugin location="zellij:compact-bar"
+        }
+        children
+    }
+
+    // Tab 1: メイン開発
+    tab name="dev" focus=true cwd="/workspace" {
+        pane split_direction="vertical" {
+            // 左: yazi ファイルマネージャー（自動起動）
+            pane command="yazi" size="40%" {
+                name "files"
+            }
+            // 右: メイン作業エリア
+            pane size="60%" split_direction="horizontal" {
+                // Claude Code（メイン）
+                pane size="75%" {
+                    name "claude"
+                }
+                // lazygit（自動起動・常時表示）
+                pane command="lazygit" size="25%" {
+                    name "git"
+                }
+            }
+        }
+    }
+
+    // Tab 2: 並行作業（Claude Code 4画面）
+    tab name="agents" cwd="/workspace" {
+        pane split_direction="vertical" {
+            pane size="50%" split_direction="horizontal" {
+                pane size="50%" {
+                    name "agent-1"
+                }
+                pane size="50%" {
+                    name "agent-2"
+                }
+            }
+            pane size="50%" split_direction="horizontal" {
+                pane size="50%" {
+                    name "agent-3"
+                }
+                pane size="50%" {
+                    name "agent-4"
+                }
+            }
+        }
+    }
+}

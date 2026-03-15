@@ -1,0 +1,25 @@
+# Yazi ファイルマネージャー設定
+
+[mgr]
+# 2カラムレイアウト: [親ディレクトリ, ファイル一覧, プレビュー]
+# 親を0にして非表示 → ファイル一覧 + プレビューの2カラム構成
+ratio = [0, 1, 4]
+
+# ソート設定
+sort_by = "natural"
+sort_dir_first = true
+sort_sensitive = false
+
+# 表示設定
+show_hidden = true
+show_symlink = true
+linemode = "size"
+scrolloff = 5
+
+# マウス操作
+mouse_events = ["click", "scroll", "touch", "move"]
+
+[preview]
+tab_size = 2
+max_width = 600
+max_height = 900

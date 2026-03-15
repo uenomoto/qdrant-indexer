@@ -1,0 +1,13 @@
+# Helix LSP 設定
+# Python(pyright) のみ — Go/Terraform は不要
+
+# --- Python ---
+[[language]]
+name = "python"
+scope = "source.python"
+language-servers = ["pyright"]
+auto-format = true
+
+[language-server.pyright]
+command = "pyright-langserver"
+args = ["--stdio"]

@@ -1,0 +1,53 @@
+# 責務: qdrant-indexer 開発環境（app + Qdrant）
+name: qdrant-indexer
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: qdrant-indexer-dev:latest
+    container_name: qdrant-indexer
+    # コンテナを常駐させる（entrypoint.sh 実行後に sleep infinity へ引き渡し）
+    command: sleep infinity
+    volumes:
+      # プロジェクトディレクトリのマウント
+      - ..:/workspace:cached
+      # Git設定の共有 (読み取り専用)
+      - ~/.gitconfig:/home/builder/.gitconfig:ro
+      # SSH鍵の共有 (オプション・読み取り専用)
+      - ~/.ssh:/home/builder/.ssh:ro
+      # ターミナルツール設定（読み取り専用）
+      - ./config/helix:/home/builder/.config/helix:ro
+      - ./config/zellij:/home/builder/.config/zellij:ro
+      - ./config/yazi:/home/builder/.config/yazi:ro
+      - ./config/lazygit:/home/builder/.config/lazygit:ro
+    environment:
+      - TERM=xterm-256color
+      - COLORTERM=truecolor
+      - FZF_DEFAULT_OPTS=--color=bg:#002b36,fg:#839496,hl:#268bd2,bg+:#073642,fg+:#eee8d5,hl+:#2aa198,info:#b58900,prompt:#859900,pointer:#d33682,marker:#cb4b16,spinner:#268bd2,header:#586e75
+    depends_on:
+      - qdrant
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - qdrant-indexer-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-indexer-qdrant
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - qdrant-indexer-network
+
+volumes:
+  qdrant-data:
+
+networks:
+  qdrant-indexer-network:
+    name: qdrant-indexer-network
+    driver: bridge

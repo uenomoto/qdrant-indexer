@@ -1,0 +1,14 @@
+// Zellij 基本設定
+// 操作: Ctrl+t→n=新タブ, Alt+n=新ペイン, Alt+[/]=ペイン移動
+
+// マウス操作を有効化
+mouse_mode true
+
+// クリップボード連携（OSC 52 経由で Windows Terminal へ送信）
+copy_on_select true
+
+// デフォルトシェル
+default_shell "bash"
+
+// スクロールバックバッファ（行数）
+scroll_buffer_size 10000

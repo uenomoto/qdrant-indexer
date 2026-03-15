@@ -1,0 +1,28 @@
+# lazygit 設定 — コミット履歴重視レイアウト
+
+gui:
+  # サイドパネル幅（デフォルト 0.3333 → 狭めてメインを広く）
+  sidePanelWidth: 0.2
+  # フォーカス中のサイドパネルを拡大（Commits 選択時に一覧が広がる）
+  expandFocusedSidePanel: true
+  expandedSidePanelWeight: 3
+  # メインパネルの分割モード（flexible: 内容に応じて自動調整）
+  mainPanelSplitMode: flexible
+  # マウス操作
+  mouseEvents: true
+
+# ステータスパネルを全ブランチログ表示に変更
+statusPanelView: allBranchesLog
+
+git:
+  log:
+    # コミットの並び順（topo-order: ブランチの分岐が見やすい）
+    order: topo-order
+    # コミットグラフを常に表示（ブランチの分岐・マージ線）
+    showGraph: always
+    # 全ブランチの履歴を表示
+    showWholeGraph: true
+  # ブランチログの表示コマンド
+  branchLogCmd: "git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --"
+  allBranchesLogCmds:
+    - "git log --graph --all --color=always --abbrev-commit --decorate --date=relative --pretty=medium"

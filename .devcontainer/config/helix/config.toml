@@ -1,0 +1,30 @@
+# Helix エディタ基本設定
+# 操作: gd=定義ジャンプ, gr=参照一覧, Space+f=ファイル検索, Space+s=シンボル検索
+theme = "solarized_dark"
+
+[editor]
+line-number = "relative"
+mouse = true
+cursorline = true
+auto-save = true
+bufferline = "multiple"
+color-modes = true
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.indent-guides]
+render = true
+
+[editor.lsp]
+display-messages = true
+display-inlay-hints = true
+
+[editor.statusline]
+left = ["mode", "spinner", "file-name", "file-modification-indicator"]
+right = ["diagnostics", "selections", "position", "file-encoding", "file-type"]
+
+[keys.normal]
+C-s = ":write"

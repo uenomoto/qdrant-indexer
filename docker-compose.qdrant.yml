@@ -1,0 +1,41 @@
+# ============================================================================
+# 本番 Qdrant（全プロジェクト共有・常時起動）
+# ============================================================================
+# 起動: docker compose -f docker-compose.qdrant.yml up -d
+# 停止: docker compose -f docker-compose.qdrant.yml down
+#
+# 外部ネットワーク "qdrant-shared" を作成し、他のプロジェクトの
+# devcontainer からも接続可能にする。
+#
+# 接続例（他プロジェクトの docker-compose.yml）:
+#   services:
+#     app:
+#       networks:
+#         - qdrant-shared
+#   networks:
+#     qdrant-shared:
+#       external: true
+#       name: qdrant-shared
+#
+# その後、コンテナ内から http://qdrant:6333 で到達可能。
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - qdrant-shared
+
+volumes:
+  qdrant-data:
+
+networks:
+  qdrant-shared:
+    name: qdrant-shared
+    driver: bridge

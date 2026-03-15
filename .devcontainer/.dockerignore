@@ -1,0 +1,10 @@
+# env files（機密情報）
+devcontainer.env
+devcontainer.env.example
+.env
+
+# Version control
+.git
+
+# Documentation
+*.md

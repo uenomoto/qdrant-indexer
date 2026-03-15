@@ -1,0 +1,12 @@
+qdrant:
+  url: "http://localhost:6333"
+  collection: "test-collection"
+
+embedding:
+  model: "intfloat/multilingual-e5-large"
+
+sources:
+  - path: "docs/**/*.md"
+    category: "design"
+  - path: "adr/**/*.md"
+    category: "adr"
