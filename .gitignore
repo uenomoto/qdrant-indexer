@@ -5,3 +5,4 @@ __pycache__/
 *.egg-info/
 local/
 src/qdrant_indexer/__pycache__
+.claude/
