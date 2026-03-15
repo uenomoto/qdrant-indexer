@@ -230,12 +230,15 @@ def sync(
     except RuntimeError:
         commit = "unknown"
 
+    info = qdrant.get_collection_info()
+    actual_count = info.get("points_count", current_state.chunk_count) if info.get("exists") else current_state.chunk_count
+
     new_state = IndexState(
         last_commit=commit,
         collection=cfg.qdrant.collection,
         indexed_at=datetime.now(tz=UTC).isoformat(),
-        file_count=current_state.file_count,
-        chunk_count=current_state.chunk_count,
+        file_count=current_state.file_count + len(modified) - len(deleted),
+        chunk_count=actual_count,
     )
     save_state(state_file, new_state)
     typer.echo("状態を更新しました")
