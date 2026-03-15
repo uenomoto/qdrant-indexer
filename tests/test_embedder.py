@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from qdrant_indexer.embedder import _PASSAGE_PREFIX, _QUERY_PREFIX, Embedder
+from qdrant_indexer.embedder import Embedder
 from qdrant_indexer.models import Chunk, ChunkMetadata
 
 
@@ -25,7 +25,7 @@ class TestEmbedder:
     """Embedder のテスト"""
 
     @patch("qdrant_indexer.embedder.TextEmbedding")
-    def test_embed_chunksでpassageプレフィックスが付与される(self, mock_cls: MagicMock) -> None:
+    def test_embed_chunksでテキストがそのまま渡される(self, mock_cls: MagicMock) -> None:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
         mock_instance.embed.return_value = [np.array([0.1, 0.2, 0.3])]
@@ -34,12 +34,11 @@ class TestEmbedder:
         chunks = [_make_chunk("テスト本文")]
         embedder.embed_chunks(chunks)
 
-        # embed に渡されたテキストに "passage: " プレフィックスが付いている
         call_args = mock_instance.embed.call_args[0][0]
-        assert call_args[0] == f"{_PASSAGE_PREFIX}テスト本文"
+        assert call_args[0] == "テスト本文"
 
     @patch("qdrant_indexer.embedder.TextEmbedding")
-    def test_embed_queryでqueryプレフィックスが付与される(self, mock_cls: MagicMock) -> None:
+    def test_embed_queryでテキストがそのまま渡される(self, mock_cls: MagicMock) -> None:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
         mock_instance.embed.return_value = [np.array([0.4, 0.5, 0.6])]
@@ -48,7 +47,7 @@ class TestEmbedder:
         embedder.embed_query("検索クエリ")
 
         call_args = mock_instance.embed.call_args[0][0]
-        assert call_args[0] == f"{_QUERY_PREFIX}検索クエリ"
+        assert call_args[0] == "検索クエリ"
 
     @patch("qdrant_indexer.embedder.TextEmbedding")
     def test_embed_chunksの戻り値がリストのリスト(self, mock_cls: MagicMock) -> None:
