@@ -71,7 +71,7 @@ networks:
     name: qdrant-shared
 ```
 
-meguripコンテナ起動後内に入って疎通確認
+meguripコンテナ起動後中に入って疎通確認
 ```sh
 # 状態確認
 curl http://localhost:6333/healthz
