@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .qdrant-index-state.json
+.pytest_cache/
+*.egg-info/
+local/
+src/qdrant_indexer/__pycache__
