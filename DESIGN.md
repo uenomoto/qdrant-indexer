@@ -164,4 +164,6 @@ qdrant-indexer delete --config qdrant-index.yaml --force
 qdrant-indexer index --config qdrant-index.yaml
 ```
 
-`sync` を定期的に実行する仕組み（CI、git hook、Claude Code の `/gc` スキル等）を整備することで、検索対象を常に最新に保つ。
+`sync` を定期的に実行する仕組み（CI、git hook、Claude Code の `/gc` スキル(自作)等）を整備することで、検索対象を常に最新に保つ。
+
+`http://localhost:6333/dashboard`でGUIでダッシュボードが見れる

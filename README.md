@@ -19,7 +19,7 @@ Qdrant ベクトル DB にドキュメントを投入し、[mcp-server-qdrant](h
     └── docker-compose.yml      ← qdrant-shared ネットワークに接続
 ```
 
-### 使い方フロー
+### 使い方フロー(meguripをプロジェクトして)
 
 ```bash
 # ① 本番 Qdrant を起動（初回のみ。以降は常時起動）
@@ -32,7 +32,9 @@ docker compose -f .devcontainer/docker-compose.yml up -d
 
 # ③ devcontainer 内で CLI を実行してドキュメントを投入
 docker exec -it megurip-infrastructure bash
-uv tool install qdrant-indexer   # CLI をインストール（初回のみ）
+# PyPI に公開していないため、git経由でCLI をインストール（初回のみ）
+SSH鍵でいつもgit操作している人: `uv tool install git+ssh://git@github.com/uenomoto/qdrant-indexer.git`
+HTTPSでいつもgit操作している人: `uv tool install git+https://github.com/uenomoto/qdrant-indexer.git`
 qdrant-indexer index --config qdrant-index.yaml
 
 # ④ Claude Code が mcp-server-qdrant 経由でセマンティック検索
@@ -138,10 +140,8 @@ devcontainer にはテスト用 Qdrant が内蔵されている。本番 Qdrant 
 
 ```bash
 # devcontainer 起動
-docker volume create claude-code-config-qdrant-indexer  # 初回のみ
-cp .devcontainer/devcontainer.env.example .devcontainer/devcontainer.env
-docker compose -f .devcontainer/docker-compose.yml up -d
-docker exec -it qdrant-indexer bash
+docker compose up -d
+docker compose exec {{サービス名}} bash
 
 # テスト・Lint・型チェック
 uv run pytest tests/ -xvs
@@ -156,3 +156,7 @@ uv run mypy src/qdrant_indexer/
 - `intfloat/multilingual-e5-large` は E5 系モデルのため、投入テキストに `"passage: "` プレフィックスが必要。本 CLI は自動で付与するので利用者は意識不要
 - `.qdrant-index-state.json` は `.gitignore` に追加すること（ローカル状態のため）
 - Qdrant を先に起動してから対象プロジェクトの devcontainer を起動すること（外部ネットワークが必要）
+
+## 投入後の確認方法
+`http://localhost:6333/dashboard`でGUIでのサイドバーからCollectionsで確認できます
+初回は自動で`.qdrant-index-state.json`ファイルが生成されます
