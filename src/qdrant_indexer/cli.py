@@ -287,8 +287,6 @@ def sync(
         typer.echo("変更なし")
         return
 
-    typer.echo(f"変更/追加: {len(modified)} 件, 削除: {len(deleted)} 件")
-
     # git リポジトリルートを取得してパスを変換
     git_root = get_repo_root(config_dir)
 
@@ -305,16 +303,22 @@ def sync(
         vector_name=derive_vector_name(cfg.embedding.model),
     )
 
+    processed = 0
+    skipped = 0
+
     # 削除ファイルのベクトルを削除（sources にマッチするもののみ）
     for del_file in deleted:
         abs_path = git_root / del_file
         try:
             rel_path = str(abs_path.relative_to(config_dir))
         except ValueError:
+            skipped += 1
             continue
         if _match_source(rel_path, cfg.sources) is None:
+            skipped += 1
             continue
         qdrant.delete_by_file(rel_path)
+        processed += 1
         typer.echo(f"  削除: {rel_path}")
 
     # 変更ファイルを再インデックス
@@ -324,15 +328,18 @@ def sync(
         for mod_file in modified:
             abs_path = git_root / mod_file
             if not abs_path.exists():
+                skipped += 1
                 continue
 
             try:
                 rel_path = str(abs_path.relative_to(config_dir))
             except ValueError:
+                skipped += 1
                 continue
 
             category = category_map.get(rel_path)
             if category is None:
+                skipped += 1
                 continue
 
             # 旧チャンクを削除してから再投入
@@ -345,7 +352,13 @@ def sync(
             if chunks:
                 _embed_and_upsert(embedder, qdrant, chunks)
 
+            processed += 1
             typer.echo(f"  更新: {rel_path} ({len(chunks)} チャンク)")
+
+    detected = len(modified) + len(deleted)
+    typer.echo(
+        f"変更検出: {detected} 件（対象: {processed} 件, スキップ: {skipped} 件）"
+    )
 
     # 状態を更新
     info = qdrant.get_collection_info()
@@ -356,7 +369,10 @@ def sync(
         len(all_source_files),
         info.get("points_count", 0) if info.get("exists") else 0,
     )
-    typer.echo("状態を更新しました")
+    if processed > 0:
+        typer.echo("状態を更新しました")
+    else:
+        typer.echo("対象ファイルなし。インデックスは変更されませんでした")
 
 
 @app.command()
